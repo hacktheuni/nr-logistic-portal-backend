@@ -1,0 +1,112 @@
+generator client {
+  provider = "prisma-client"
+  output   = "./generated"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum Status {
+  DeliveredCollected
+  UnableToDeliverCollect
+  CarryForward
+  MissingParcel
+}
+
+enum ParcelType {
+  Postable
+  SmallPacket
+  Packet
+  Standard
+  HangingGarment
+  Heavy
+  HeavyLarge
+  SmallCatalogue
+  MediumCatalogue
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  password     String
+  role         Role     @default(USER)
+  appEmail     String?
+  appPassword  String?
+  appCourierId String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  reviews      Review[]
+}
+
+model Round {
+  id                   String     @id @default(uuid())
+  roundNumber          Int        @unique
+  date                 DateTime
+  postcodes            String[]   
+  ratesPerParcel       Json       
+  dropNumber           Int
+  deliveryUnitLocation String
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+
+  manifests            Manifest[]
+  volumes              Volume[]
+}
+
+model Manifest {
+  id                               String           @id @default(uuid())
+  roundId                          String
+  manifestId                       String           @unique
+  totalParcels                     Int              @default(0)
+  totalDeliveredOrCollectedParcels Int              @default(0)
+  totalUndeliveredParcels          Int              @default(0)
+  createdAt                        DateTime         @default(now())
+  updatedAt                        DateTime         @updatedAt
+
+  round                            Round            @relation(fields: [roundId], references: [id])
+  parcels                          ManifestParcel[]
+}
+
+model ManifestParcel {
+  id         String   @id @default(uuid())
+  manifestId String
+  parcelId   String   @unique
+  status     Status   
+  address    String
+  parcelType ParcelType
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  manifest   Manifest @relation(fields: [manifestId], references: [id])
+}
+
+model Review {
+  id             String   @id @default(uuid())
+  courierId      String
+  rating         Int
+  comment        String?
+  ratingDateTime DateTime
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  courier        User     @relation(fields: [courierId], references: [id])
+}
+
+model Volume {
+  id        String   @id @default(uuid())
+  roundId   String
+  volume    Float
+  date      DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  round     Round    @relation(fields: [roundId], references: [id])
+}
