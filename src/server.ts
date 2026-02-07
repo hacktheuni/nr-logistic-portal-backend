@@ -1,6 +1,7 @@
 import { app } from '@/app';
 import { config } from '@/config/env';
 import { prisma } from '@/db/prisma';
+import { logger } from '@/config/logger';
 
 const port = config.port || 8000;
 
@@ -8,10 +9,10 @@ const startServer = async () => {
   try {
     await prisma.$connect();
     app.listen(port, () => {
-      console.log(`Server running on port ${port}`);
+      logger.info(`Server running on port:  http://localhost:${port}`);
     });
   } catch (err) {
-    console.error('Failed to start server', err);
+    logger.error(err, 'Failed to start server');
     process.exit(1);
   }
 };

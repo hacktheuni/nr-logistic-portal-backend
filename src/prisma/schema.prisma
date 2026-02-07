@@ -33,10 +33,12 @@ enum ParcelType {
 
 model User {
   id           String   @id @default(uuid())
+  userId       String   @unique
   name         String
   email        String   @unique
   password     String
   role         Role     @default(USER)
+  isActive     Boolean  @default(true)
   appEmail     String?
   appPassword  String?
   appCourierId String?

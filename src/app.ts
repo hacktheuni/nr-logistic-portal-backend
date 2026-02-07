@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
 import { ApiError } from '@/utils/ApiError';
+import { apiRouter } from '@/routes';
 
 const app = express();
 
@@ -9,15 +10,14 @@ app.use(cors());
 app.use(morgan('dev'));
 app.use(express.static("public"));
 
-// Stripe webhook needs raw body, so register it BEFORE the JSON parser
-app.use('/api/payment/webhook', express.raw({ type: 'application/json' }));
-
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.get('/health', (_req, res) => {
   res.status(200).json({ status: 'ok' });
 });
+
+app.use('/api/v1', apiRouter);
 
 // Global error handler
 app.use(

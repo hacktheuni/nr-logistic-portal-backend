@@ -1,4 +1,6 @@
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcrypt';
+import CryptoJS from 'crypto-js';
 import { config } from '@/config/env';
 
 // Validate that JWT secrets are defined
@@ -42,4 +44,23 @@ const verifyAccessToken = (token: string): { id: string; email: string; role: st
     return jwt.verify(token, access_token_secret) as { id: string; email: string; role: string };
 }
 
-export { generateAccessToken, generateRefreshToken, verifyRefreshToken, verifyAccessToken };
+const comparePassword = async (password: string, hash: string): Promise<boolean> => {
+    return await bcrypt.compare(password, hash);
+}
+
+const hashPassword = async (password: string): Promise<string> => {
+    return await bcrypt.hash(password, 10);
+}
+
+const ENCRYPTION_KEY = config.encryptionKey || 'default-secret-key';
+
+const encrypt = (text: string): string => {
+    return CryptoJS.AES.encrypt(text, ENCRYPTION_KEY).toString();
+}
+
+const decrypt = (ciphertext: string): string => {
+    const bytes = CryptoJS.AES.decrypt(ciphertext, ENCRYPTION_KEY);
+    return bytes.toString(CryptoJS.enc.Utf8);
+}
+
+export { generateAccessToken, generateRefreshToken, verifyRefreshToken, verifyAccessToken, comparePassword, hashPassword, encrypt, decrypt };
