@@ -14,8 +14,7 @@ import {
     refreshTokenSchema,
     connectAppSchema,
 } from "@/validations/auth.validation";
-import appApiService from "@/services/appApi.service";
-import redis from "@/lib/redis/redisClient";
+import hermesAuthService from "@/services/hermesAuth.service";
 
 const login = asyncHandler(async (req, res) => {
     const validation = loginSchema.safeParse(req);
@@ -135,15 +134,14 @@ const connectApp = asyncHandler(async (req: any, res) => {
         throw new ApiError(403, "Access denied. Admins only.");
     }
 
-    // 1. Get uniqueId from Hermes using the service
-    const uniqueId = await appApiService.checkUser(email);
+    // 1. Validate credentials by checking user exists in Hermes
+    const uniqueId = await hermesAuthService.checkUser(email);
 
-    // 2. Verify credentials via AWS Cognito SRP using the service
-    const cognitoResult = await appApiService.authenticateWithCognito(uniqueId, password);
+    // 2. Verify credentials are valid via Cognito authentication
+    await hermesAuthService.authenticateUser(uniqueId, password);
 
-    // 3. Encrypt password and save core data to DB
+    // 3. Encrypt password and save credentials to DB for cron jobs
     const encryptedPassword = encrypt(password);
-    const expiryDate = new Date(Date.now() + 900 * 1000); // 15 min expiry
 
     await prisma.user.update({
         where: { id: user.id },
@@ -154,18 +152,9 @@ const connectApp = asyncHandler(async (req: any, res) => {
         },
     });
 
-    // 4. Save tokens to Redis Cache ONLY
-    const cacheData = {
-        accessToken: cognitoResult.AuthenticationResult.AccessToken,
-        idToken: cognitoResult.AuthenticationResult.IdToken,
-        refreshToken: cognitoResult.AuthenticationResult.RefreshToken,
-        expiry: expiryDate.toISOString(),
-    };
-    await redis.set(`app_tokens:${user.id}`, JSON.stringify(cacheData), 'EX', 900);
-
     return res
         .status(200)
-        .json(new ApiResponse(200, { courierId: uniqueId, cognitoResult }, "App connected successfully"));
+        .json(new ApiResponse(200, { courierId: uniqueId }, "App connected successfully. Data will sync via scheduled jobs."));
 });
 
 const disconnectApp = asyncHandler(async (req: any, res) => {
@@ -175,7 +164,7 @@ const disconnectApp = asyncHandler(async (req: any, res) => {
         throw new ApiError(403, "Access denied. Admins only.");
     }
 
-    // Clean up DB
+    // Clean up credentials from DB
     await prisma.user.update({
         where: { id: user.id },
         data: {
@@ -184,9 +173,6 @@ const disconnectApp = asyncHandler(async (req: any, res) => {
             appCourierId: null,
         },
     });
-
-    // Clean up Redis
-    await redis.del(`app_tokens:${user.id}`);
 
     return res
         .status(200)

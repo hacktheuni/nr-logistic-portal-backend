@@ -1,0 +1,33 @@
+auth:
+	/login
+	/forgot-password
+	/reset-password
+	/refresh-token
+	/logout
+
+profile:
+    /get-profile
+    /update-password
+
+driver:
+	/create-driver
+	/update-driver
+	/deactivate-driver
+	/activate-driver
+	/get-all-driver
+	/get-driver
+    
+round:
+    /get-accepted-round
+    /get-round
+    /get-round-by-date
+
+manifest:
+    /get-manifests-by-roundNumber
+    /get-manifests-by-roundID
+
+review:
+    /get-reviews
+    /get-avrage-rate
+    
+

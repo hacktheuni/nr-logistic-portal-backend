@@ -1,114 +1,125 @@
-generator client {
-  provider = "prisma-client"
-  output   = "./generated"
+  generator client {
+    provider = "prisma-client"
+    output   = "./generated"
+  }
+
+  datasource db {
+    provider = "postgresql"
+  }
+
+  // --- ENUMS ---
+
+enum RoundStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
 }
 
-datasource db {
-  provider = "postgresql"
-}
-
-enum Role {
-  USER
-  ADMIN
-}
-
-enum Status {
-  DeliveredCollected
-  UnableToDeliverCollect
+enum ParcelStatus {
+  Delivered_Collected
+  Unable_To_Deliver_Collect
   CarryForward
   MissingParcel
 }
 
-enum ParcelType {
-  Postable
-  SmallPacket
-  Packet
-  Standard
-  HangingGarment
-  Heavy
-  HeavyLarge
-  SmallCatalogue
-  MediumCatalogue
+// --- TABLES ---
+
+model Admin {
+  id            String   @id @default(uuid())
+  name          String
+  email         String   @unique
+  appEmail      String   // Store Encrypted
+  appPassword   String   // Store Encrypted
+  appCourierId  String   @unique
+  createdAt     DateTime @default(now())
 }
 
-model User {
-  id           String   @id @default(uuid())
-  userId       String   @unique
-  name         String
-  email        String   @unique
-  password     String
-  role         Role     @default(USER)
-  isActive     Boolean  @default(true)
-  appEmail     String?
-  appPassword  String?
-  appCourierId String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+model Driver {
+  id                  String   @id @default(uuid())
+  name                String
+  email               String   @unique
+  appDriverID         String?  @unique
+  ratePerTypeOfParcel Json?    // Flexible rates for different parcel types
 
-  reviews      Review[]
+  // Relationships
+  assignments         RoundAssignment[]
+  manifestItems       ManifestItem[]
+  earnings            DriverEarning[]
 }
 
 model Round {
-  id                   String     @id @default(uuid())
-  roundNumber          Int        @unique
-  date                 DateTime
-  postcodes            String[]   
-  ratesPerParcel       Json       
-  dropNumber           Int
-  deliveryUnitLocation String
-  createdAt            DateTime   @default(now())
-  updatedAt            DateTime   @updatedAt
+  id                   String   @id @default(uuid())
+  roundNumber          String
+  roundDate            DateTime
+  deliveryUnitLocation String?
+  dropNumber           Int?
+  status               RoundStatus @default(PENDING)
+  postCodes            String[]
+  globalRates          Json?
 
+  // Relationships
+  assignments          RoundAssignment[]
   manifests            Manifest[]
-  volumes              Volume[]
+  earnings             DriverEarning[]
+}
+
+// Junction table to handle multiple drivers per round (Shifting Logic)
+model RoundAssignment {
+  id            String    @id @default(uuid())
+  roundId       String
+  driverId      String
+  assignedAt    DateTime  @default(now())
+  unassignedAt  DateTime? // Null means this is the driver currently working the round
+
+  round         Round     @relation(fields: [roundId], references: [id])
+  driver        Driver    @relation(fields: [driverId], references: [id])
 }
 
 model Manifest {
-  id                               String           @id @default(uuid())
-  roundId                          String
-  manifestId                       String           @unique
-  totalParcels                     Int              @default(0)
-  totalDeliveredOrCollectedParcels Int              @default(0)
-  totalUndeliveredParcels          Int              @default(0)
-  createdAt                        DateTime         @default(now())
-  updatedAt                        DateTime         @updatedAt
+  id                   String   @id @default(uuid())
+  roundId              String
+  manifestNumber       String
+  totalManifestItems   Int      @default(0)
+  totalDelivered       Int      @default(0)
+  totalCarryForward    Int      @default(0)
 
-  round                            Round            @relation(fields: [roundId], references: [id])
-  parcels                          ManifestParcel[]
+  round                Round    @relation(fields: [roundId], references: [id])
+  items                ManifestItem[]
 }
 
-model ManifestParcel {
-  id         String   @id @default(uuid())
-  manifestId String
-  parcelId   String   @unique
-  status     Status   
-  address    String
-  parcelType ParcelType
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+model ManifestItem {
+  id           String    @id @default(uuid())
+  manifestId   String
+  driverId     String?   // Tracks exactly who delivered this barcode
+  type         String?
+  barcode      String    @unique
+  address      String?
+  status       ParcelStatus @default(MANIFESTED)
+  scannedAt    DateTime? // Timestamp of the specific scan event
 
-  manifest   Manifest @relation(fields: [manifestId], references: [id])
+  manifest     Manifest  @relation(fields: [manifestId], references: [id])
+  driver       Driver?   @relation(fields: [driverId], references: [id])
 }
 
+// Independent Review Table
 model Review {
   id             String   @id @default(uuid())
-  courierId      String
-  rating         Int
+  customerName   String?
+  rating         Int      // 1-5 Stars
   comment        String?
-  ratingDateTime DateTime
+  hasBadges      Boolean  @default(false)
+  isCommentOnly  Boolean  @default(false)
   createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  courier        User     @relation(fields: [courierId], references: [id])
 }
 
-model Volume {
-  id        String   @id @default(uuid())
-  roundId   String
-  volume    Float
-  date      DateTime
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model DriverEarning {
+  id              String   @id @default(uuid())
+  roundId         String
+  driverId        String
+  totalDelivered  Int      @default(0)
+  totalAmount     Decimal  @db.Decimal(10, 2)
+  calculatedAt    DateTime @default(now())
 
-  round     Round    @relation(fields: [roundId], references: [id])
+  round           Round    @relation(fields: [roundId], references: [id])
+  driver          Driver   @relation(fields: [driverId], references: [id])
 }
