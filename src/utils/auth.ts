@@ -16,33 +16,33 @@ const refresh_token_secret: string = config.jwtRefreshTokenSecret;
 const access_token_expiresIn = config.jwtAccessTokenExpiresIn || '15m';
 const refresh_token_expiresIn = config.jwtRefreshTokenExpiresIn || '7d';
 
-const generateAccessToken = (payload: { id: string, email: string, role: string }) => {
-    return jwt.sign(
-        payload,
+const generateTokens = (admin: { id: string; email: string }) => {
+    const accessToken = jwt.sign(
+        { id: admin.id, email: admin.email },
         access_token_secret,
         {
             expiresIn: access_token_expiresIn as NonNullable<jwt.SignOptions['expiresIn']>
         }
-    )
-}
+    );
 
-const generateRefreshToken = (payload: { id: string }) => {
-    return jwt.sign(
-        payload,
+    const refreshToken = jwt.sign(
+        { id: admin.id },
         refresh_token_secret,
         {
             expiresIn: refresh_token_expiresIn as NonNullable<jwt.SignOptions['expiresIn']>
         }
-    )
-}
+    );
+
+    return { accessToken, refreshToken };
+};
 
 const verifyRefreshToken = (token: string): { id: string } => {
     return jwt.verify(token, refresh_token_secret) as { id: string };
-}
+};
 
-const verifyAccessToken = (token: string): { id: string; email: string; role: string } => {
-    return jwt.verify(token, access_token_secret) as { id: string; email: string; role: string };
-}
+const verifyAccessToken = (token: string): { id: string; email: string } => {
+    return jwt.verify(token, access_token_secret) as { id: string; email: string };
+};
 
 const comparePassword = async (password: string, hash: string): Promise<boolean> => {
     return await bcrypt.compare(password, hash);
@@ -63,4 +63,4 @@ const decrypt = (ciphertext: string): string => {
     return bytes.toString(CryptoJS.enc.Utf8);
 }
 
-export { generateAccessToken, generateRefreshToken, verifyRefreshToken, verifyAccessToken, comparePassword, hashPassword, encrypt, decrypt };
+export { generateTokens, verifyRefreshToken, verifyAccessToken, comparePassword, hashPassword, encrypt, decrypt };

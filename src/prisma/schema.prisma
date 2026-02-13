@@ -7,29 +7,29 @@
     provider = "postgresql"
   }
 
-  // --- ENUMS ---
 
 enum RoundStatus {
   PENDING
   IN_PROGRESS
   COMPLETED
+  CANCELLED
 }
 
 enum ParcelStatus {
-  Delivered_Collected
-  Unable_To_Deliver_Collect
-  CarryForward
-  MissingParcel
+  MANIFESTED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  FAILED
+  CFWD 
 }
 
-// --- TABLES ---
 
 model Admin {
   id            String   @id @default(uuid())
   name          String
   email         String   @unique
-  appEmail      String   // Store Encrypted
-  appPassword   String   // Store Encrypted
+  appEmail      String   
+  appPassword   String   
   appCourierId  String   @unique
   createdAt     DateTime @default(now())
 }
@@ -39,7 +39,7 @@ model Driver {
   name                String
   email               String   @unique
   appDriverID         String?  @unique
-  ratePerTypeOfParcel Json?    // Flexible rates for different parcel types
+  rate                Float    
 
   // Relationships
   assignments         RoundAssignment[]
@@ -63,13 +63,12 @@ model Round {
   earnings             DriverEarning[]
 }
 
-// Junction table to handle multiple drivers per round (Shifting Logic)
 model RoundAssignment {
   id            String    @id @default(uuid())
   roundId       String
   driverId      String
   assignedAt    DateTime  @default(now())
-  unassignedAt  DateTime? // Null means this is the driver currently working the round
+  unassignedAt  DateTime? 
 
   round         Round     @relation(fields: [roundId], references: [id])
   driver        Driver    @relation(fields: [driverId], references: [id])
@@ -90,25 +89,22 @@ model Manifest {
 model ManifestItem {
   id           String    @id @default(uuid())
   manifestId   String
-  driverId     String?   // Tracks exactly who delivered this barcode
+  driverId     String?   
   type         String?
   barcode      String    @unique
   address      String?
   status       ParcelStatus @default(MANIFESTED)
-  scannedAt    DateTime? // Timestamp of the specific scan event
+  scannedAt    DateTime? 
 
   manifest     Manifest  @relation(fields: [manifestId], references: [id])
   driver       Driver?   @relation(fields: [driverId], references: [id])
 }
 
-// Independent Review Table
 model Review {
   id             String   @id @default(uuid())
-  customerName   String?
-  rating         Int      // 1-5 Stars
+  rating         Int      
   comment        String?
   hasBadges      Boolean  @default(false)
-  isCommentOnly  Boolean  @default(false)
   createdAt      DateTime @default(now())
 }
 
